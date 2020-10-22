@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.bootcdn.net/ajax/libs/Mock.js/1.0.1-beta3/mock-min.js"></script>
+    <title>简易分页器</title>
+    <style>
+        * {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        .paging {
+            width: 600px;
+            margin: 0 auto;
+        }
+
+        .content {
+            list-style-type: none;
+            margin-top: 50px;
+            margin-left: 100px;
+        }
+        .content li{
+            height: 30px;
+            line-height: 30px;
+        }
+
+        .footer {
+            width: 600px;
+            display: flex;
+            flex-wrap: wrap;
+            flex-grow: unset;
+            align-items: center;
+            justify-content: space-evenly;
+            position: fixed;
+            top: 60%;
+            left: 50%;
+            margin-left: -300px;
+        }
+
+
+        button {
+            /* width: 100px; */
+            height: 30px;
+            line-height: 30px;
+            padding: 0px 10px;
+            color: blue;
+            background-color: white;
+            border: 1px solid gray;
+            user-select: none;
+        }
+
+        .pageCount {
+            list-style-type: none;
+            display: flex;
+        }
+
+        .pageCount li {
+            width: 30px;
+            height: 30px;
+            text-align: center;
+            line-height: 30px;
+            border: 1px solid gray;
+            margin-right: 5px;
+        }
+
+        .active {
+            color: white;
+            background-color: rgb(0, 89, 255);
+        }
+
+        #total {
+            height: 30px;
+            line-height: 30px;
+        }
+
+        #jump {
+            height: 30px;
+            line-height: 30px;
+        }
+
+        #jumper input {
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="box">
+        <pagination @getpage='fetch' :currentpage="page" :total='messages' :arr="currentArr">
+
+        </pagination>
+    </div>
+    <template id="paging">
+        <div class="paging">
+            <ul class="content">
+                <li v-for="(item, index) in arr">{{index+1}}.{{item.sentence}}</li>
+            </ul>
+            <div class="footer">
+                <button class="prev" type="button" @click="minus" v-show='currentpage!=1'>上一页</button>
+                <ul class="pageCount">
+                    <li v-for="(item, index) in pages" :key="index" @click="select(item)" :key="item" :class="{active:currentpage == item}">
+                        {{item}}</li>
+                </ul>
+                <button class="next" type="button" @click="add" v-show='currentpage!=pager'>下一页</button>
+                <div id="total">
+                    <span class="total">当前{{currentpage}}页</span>
+                    <span class="total">共{{pager}}页</span>
+                </div>
+                <div id="jumper">
+                    <span>跳转到</span>
+                    <input type="text" v-on:keyup.enter="jump" v-model="jumppage" @blur='cancel'>
+                    <span>页</span>
+                </div>
+            </div>
+        </div>
+    </template>
+    <script src='https://cdn.bootcdn.net/ajax/libs/vue/2.6.11/vue.js'></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.1.0/axios.min.js"></script>
+    <script>
+        Mock.mock('/messages', 'get', {
+            status: 200,
+            description: "用户数据",
+            "messages|150": [
+                {
+                    'id|+1': 1,
+                    'sentence': "@csentence()"
+                }
+            ]
+        });
+        Vue.component("pagination", {
+            template: "#paging",
+            props: {
+                // 总数
+                total: {
+                    type: Number,
+                    // required: true
+                },
+                // 当前页数
+                cpage: {
+                    type: Number,
+                    default: 0,
+                    // required: true
+                },
+                // 页码个数
+                pageCount: {
+                    type: Number,
+                    default: 5
+                },
+                // 每页信息个数
+                messageCount: {
+                    type: Number,
+                    default: 10
+                },
+                arr:{
+                    type:Array,
+                }
+            },
+            data() {
+                return {
+                    currentpage: 1,
+                    jumppage: 0,
+                    // arr:[]
+                }
+            },
+            methods: {
+                add() {
+                    if (this.currentpage >= this.pager) {
+                        this.currentpage = this.pager;
+                    }
+                    this.currentpage++;
+                    this.$emit('getpage', this.currentpage);
+                },
+                minus() {
+                    if (this.currentpage <= 1) {
+                        this.currentpage = 1;
+                    }
+                    this.currentpage--;
+                    this.$emit('getpage', this.currentpage);
+                },
+                jump() {
+                    this.currentpage = this.jumppage;
+                    this.$emit('getpage', this.currentpage);
+                    if (this.currentpage >= this.pager) {
+                        this.currentpage = this.pager;
+                        this.jumppage = this.pager;
+                    } else if (this.currentpage <= 1) {
+                        this.currentpage = 1;
+                        this.jumppage = 1;
+                    }
+                    console.log(this.currentpage);
+                },
+                cancel() {
+                    this.jumppage = this.currentpage;
+                    alert('你确定取消跳转吗？');
+                },
+                select(val){
+                    this.currentpage = val;
+                }
+            },
+            computed: {
+                pager() {
+                    return Math.ceil(this.total / this.messageCount);
+                },
+                pages() {
+                    let list = [];
+                    if (this.currentpage <= this.pageCount) {
+                        // 判断总页数与页码按钮数量的大小
+                        let val = Math.min(this.pager, this.pageCount);
+                        while (val) {
+                            list.unshift(val--);
+                        }
+                    } else {
+                        if (this.currentpage >= this.pager) {
+                            this.currentpage = this.pager;
+                        }
+                        let i = this.pageCount;
+                        // 从哪开始
+                        let start = this.currentpage - this.pageCount + 1;
+                        while (i--) {
+                            list.push(start++);
+                        }
+                    }
+                    return list;
+                },
+            },
+        })
+        let vm = new Vue({
+            el: "#box",
+            data: {
+                page: 1,
+                messages: 0,
+                getArr:[],
+                currentArr: []
+            },
+            methods: {
+                fetch(val) {
+                    return this.page = val;
+                }
+            },
+            created() {
+                axios.get('/messages')
+                    .then(res => {
+                        // console.log(res.messages);
+                        let mes = res.messages;
+                        this.messages = mes.length;
+                        this.currentArr = mes.slice(10*this.page-10,10*this.page);
+                        // console.log(this.currentArr);
+                        this.getArr = mes;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                    })
+            },
+            watch: {
+                page:function(val){
+                    this.currentArr = this.getArr.slice(10*val-10,10*val);
+                }
+            },
+        })
+    </script>
+</body>
+
+</html>
